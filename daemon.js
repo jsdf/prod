@@ -12,6 +12,7 @@ _.each(urlsApps, function(val, key) { prodInProgress[key] = false });
 
 health.monitor(_.keys(urlsApps), config.opts, function(err, url) {
   if (!err) return; // all good
+  if (prodInProgress[url]) return;
 
   var name = urlsApps[url];
 

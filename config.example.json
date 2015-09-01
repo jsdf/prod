@@ -1,0 +1,16 @@
+{
+  "opts": {
+    "interval": 60000,
+    "timeout": 15000,
+  },
+  "apps": [
+    {
+      "name": "hacker-news-mobile-api",
+      "url": "http://api.hackernewsmobile.com/"
+    },
+    {
+      "name": "hacker-news-mobile",
+      "url": "http://hackernewsmobile.com/"
+    }
+  ]
+}

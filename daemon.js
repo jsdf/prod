@@ -37,7 +37,7 @@ health.monitor(_.keys(urlsApps), config.opts, function(err, url) {
         log(name+' -- restarted');
       }
       return done();
-    }
+    });
   });
 });
 

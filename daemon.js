@@ -1,45 +1,58 @@
 var health = require('health-monitor');
 var exec = require('child_process').exec;
-var _ = require('underscore');
 
 var config = require('./config.json');
 
 var urlsApps = {};
-_.each(config.apps, function(app) { urlsApps[app.url] = app.name });
+config.apps.forEach(function(app) { urlsApps[app.url] = app.name; });
 
 var prodInProgress = {};
-_.each(urlsApps, function(val, key) { prodInProgress[key] = false });
+Object.keys(urlsApps).forEach(function(url) { prodInProgress[url] = false; });
 
-health.monitor(_.keys(urlsApps), config.opts, function(err, url) {
+health.monitor(Object.keys(urlsApps), config.opts, function(err, url) {
   if (!err) return; // all good
-  if (prodInProgress[url]) return;
+  if (prodInProgress[url]) return log(name+' -- prod in progress, skipping');
 
   var name = urlsApps[url];
 
   prodInProgress[url] = true;
-  var done = function() { prodInProgress[url] = false; }
+  function done() {
+    prodInProgress[url] = false;
+  }
 
   log(name+' -- healthcheck failed');
-  exec('pm2 jlist', { maxBuffer: 1024*1024 }, function(err, stdout, stderr) {
-    if (err) return logErr(err) && done();
-
-    var processesInfos = JSON.parse(stdout.toString());
-    var processInfo = _.find(processesInfos, {name: name})
-    if (!(processInfo && processInfo.pm2_env)) return done();
-    if (processInfo.pm2_env.status != 'online') return done();
+  checkProcessStatus(function(err, normal) {
+    if (err) return logErr(err), done();
+    if (!normal) return log(name+' -- process not in normal state, skipping'), done();
 
     log(name+' -- attempting to restart');
-    exec('pm2 restart '+name, function(err) {
-      if (err) {
-        logErr(name+' -- error while trying to restart');
-        logErr(err);
-      } else {
-        log(name+' -- restarted');
-      }
-      return done();
-    }
+    restartProcess(name, function(err) {
+      if (err) logErr(name+' -- error while trying to restart'), logErr(err), done();
+      log(name+' -- restarted'), done();
+    });
   });
 });
+
+function checkProcessStatus(done) {
+  exec('pm2 jlist', { maxBuffer: 1024*1024 }, function(err, stdout, stderr) {
+    if (err) return done(err);
+
+    try {
+      var processesInfos = JSON.parse(stdout.toString());
+    } catch (jsonErr) {
+      if (jsonErr) return done(jsonErr);
+    }
+    var processInfo = processesInfos.find(function(info) { return info.name == name });
+    if (!processInfo) return done(new Error('process not found in pm2 output'));
+    if (!processInfo.pm2_env) return done(new Error('pm2 output invalid'));
+
+    return done(null, processInfo.pm2_env.status === 'online');
+  });
+}
+
+function restartProcess(name, done) {
+  exec('pm2 restart '+name, done);
+}
 
 function log(msg) {
   console.log(new Date(), msg);

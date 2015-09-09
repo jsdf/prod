@@ -10,15 +10,13 @@ var prodInProgress = {};
 Object.keys(urlsApps).forEach(function(url) { prodInProgress[url] = false; });
 
 health.monitor(Object.keys(urlsApps), config.opts, function(err, url) {
-  if (!err) return; // all good
-  if (prodInProgress[url]) return log(name+' -- prod in progress, skipping');
-
   var name = urlsApps[url];
 
+  if (!err) return config.verbose && log(name+' -- ok'); // all good
+  if (prodInProgress[url]) return log(name+' -- prod in progress, skipping');
+
   prodInProgress[url] = true;
-  function done() {
-    prodInProgress[url] = false;
-  }
+  function done() { prodInProgress[url] = false; }
 
   log(name+' -- healthcheck failed');
   checkProcessStatus(function(err, normal) {
@@ -34,7 +32,7 @@ health.monitor(Object.keys(urlsApps), config.opts, function(err, url) {
 });
 
 function checkProcessStatus(done) {
-  exec('pm2 jlist', { maxBuffer: 1024*1024 }, function(err, stdout, stderr) {
+  exec('pm2 jlist', {maxBuffer: 1024*1024}, function(err, stdout, stderr) {
     if (err) return done(err);
 
     try {
